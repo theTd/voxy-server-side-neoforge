@@ -37,10 +37,14 @@ public abstract class NormalRenderPipelineDepthMaskMixin {
         dev.xantha.vss.client.prediction.PredictionNormalDepthBridge.bind(vss$sourceZeroToOne);
         dev.xantha.vss.client.prediction.PredictionFogBridge.bindVoxy();
         dev.xantha.vss.client.prediction.PredictionNormalTranslucencyBridge.bindFinal(viewport, sourceFramebuffer);
+        dev.xantha.vss.compat.VoxyRealDepthGuard.bind();
     }
 
     @Inject(method = "finish(Lme/cortex/voxy/client/core/rendering/Viewport;III)V", at = @At("HEAD"), remap = false, require = 0)
-    private void vss$enableDepthWritesForFinalBlit(CallbackInfo ci) {
+    private void vss$enableDepthWritesForFinalBlit(@Coerce Object viewport, int sourceFramebuffer,
+                                                   int width, int height, CallbackInfo ci) {
+        // Snapshot real depth first: the forced depth write below must not bury real geometry.
+        dev.xantha.vss.compat.VoxyRealDepthGuard.prepare(sourceFramebuffer);
         // The 1.21.1 Voxy port can declare zero-to-one while GL still maps
         // raster depth from [-1,1]. Never infer the texture encoding from that flag.
         vss$sourceZeroToOne = dev.xantha.vss.client.prediction.PredictionNormalDepthBridge.sourceZeroToOne();
@@ -68,6 +72,7 @@ public abstract class NormalRenderPipelineDepthMaskMixin {
                                                      int width, int height, CallbackInfo ci) {
         GL11.glDepthMask(vss$previousDepthMask);
         GL11.glDepthFunc(vss$depthFunction);
+        dev.xantha.vss.compat.VoxyRealDepthGuard.restore();
         int active = GL11.glGetInteger(org.lwjgl.opengl.GL13.GL_ACTIVE_TEXTURE);
         org.lwjgl.opengl.GL13.glActiveTexture(org.lwjgl.opengl.GL13.GL_TEXTURE4);
         GL11.glBindTexture(GL11.GL_TEXTURE_2D, vss$texture4);
